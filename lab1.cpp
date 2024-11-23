@@ -32,7 +32,7 @@ public:
         }
 
         // Обработка события
-        std::cout << "Producer: event " << std::endl;
+        std::cout << "Producer: event processed." << std::endl;
         eventReady = false;
         condition.notify_one();                // Уведомляем производителя
     }

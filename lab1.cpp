@@ -20,7 +20,7 @@ public:
         }
 
         // Генерация события
-        std::cout << "Producer: event created." << std::endl;
+        std::cout << "Producer: Event created." << std::endl;
         eventReady = true;
         condition.notify_one();                // Уведомляем потребителя
     }
@@ -32,7 +32,7 @@ public:
         }
 
         // Обработка события
-        std::cout << "Producer: event processed." << std::endl;
+        std::cout << "Consumer: Event processed." << std::endl;
         eventReady = false;
         condition.notify_one();                // Уведомляем производителя
     }

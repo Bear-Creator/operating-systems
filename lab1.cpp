@@ -1,66 +1,55 @@
 #include <iostream>
-#include <thread>
-#include <mutex>
-#include <condition_variable>
-#include <chrono>
+#include <pthread.h>
+#include <unistd.h>
 
-class Monitor {
-private:
-    bool eventReady;                         
-    std::mutex mtx;                          
-    std::condition_variable condition;
+pthread_cond_t cond1 = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+int ready = 0;
 
-public:
-    Monitor() : eventReady(false) {}
-
-    void produceEvent() {
-        std::unique_lock<std::mutex> lock(mtx); 
-        while (eventReady) {
-            condition.wait(lock);
-        }
-
-        // Генерация события
-        std::cout << "Producer: Event created." << std::endl;
-        eventReady = true;
-        condition.notify_one();                // Уведомляем потребителя
-    }
-
-    void consumeEvent() {
-        std::unique_lock<std::mutex> lock(mtx); // Захват мьютекса
-        while (!eventReady) {
-            condition.wait(lock);              // Ждем, пока появится событие
-        }
-
-        // Обработка события
-        std::cout << "Consumer: Event processed." << std::endl;
-        eventReady = false;
-        condition.notify_one();                // Уведомляем производителя
-    }
-};
-
-void producer(Monitor& monitor) {
+void* producer(void* arg) {
     while (true) {
-        std::this_thread::sleep_for(std::chrono::seconds(1)); // Задержка в 1 секунду
-        monitor.produceEvent();
+        sleep(1);
+        pthread_mutex_lock(&lock);
+
+        if (ready == 1) {
+            pthread_mutex_unlock(&lock);
+            continue;
+        }
+
+        ready = 1;
+        std::cout << "Поставка! Сообщение отправлено!\n";
+
+        pthread_cond_signal(&cond1);
+        pthread_mutex_unlock(&lock);
     }
+    return nullptr;
 }
 
-void consumer(Monitor& monitor) {
+void* consumer(void* arg) {
     while (true) {
-        monitor.consumeEvent();
+        pthread_mutex_lock(&lock);
+
+        while (ready == 0) {
+            pthread_cond_wait(&cond1, &lock);
+            std::cout << "Потребитель получил сообщение!\n";
+        }
+
+        ready = 0;
+        std::cout << "Потребитель также обработал сообщение!\n";
+
+        pthread_mutex_unlock(&lock);
     }
+    return nullptr;
 }
 
 int main() {
-    Monitor monitor;
+    pthread_t producerThread, consumerThread;
 
-    // Создаем потоки для производителя и потребителя
-    std::thread producerThread(producer, std::ref(monitor));
-    std::thread consumerThread(consumer, std::ref(monitor));
+    pthread_create(&producerThread, nullptr, producer, nullptr);
+    pthread_create(&consumerThread, nullptr, consumer, nullptr);
 
-    // Ожидаем завершения потоков (в данном случае бесконечно)
-    producerThread.join();
-    consumerThread.join();
+    pthread_join(producerThread, nullptr);
+    pthread_join(consumerThread, nullptr);
 
     return 0;
 }
